@@ -6,6 +6,31 @@ The format is based on Keep a Changelog and Semantic Versioning.
 
 ## [Unreleased]
 
+## [v0.1.0] - 2026-02-22
+
+### Summary
+
+- Release v0.1.0
+
+### Commits
+
+- db155f5 nuevo interfaz de usario (mauricio2093)
+
+### Files
+
+- .python-version
+- README.md
+- adb_automation_tool.py
+- assets/img/favicon.png
+- assets/img/logo-android-scan-ad.png
+- scripts/build-exe.ps1
+- scripts/build-exe.sh
+- scripts/qa-release-tag.sh
+- scripts/release-tag.ps1
+- scripts/release-tag.sh
+- scripts/run-app.ps1
+- scripts/run-app.sh
+
 ## [v0.0.2] - 2026-02-22
 
 ### Summary
@@ -26,4 +51,5 @@ The format is based on Keep a Changelog and Semantic Versioning.
 - scripts/release-tag.sh
 - scripts/run-app.ps1
 - scripts/run-app.sh
+
 

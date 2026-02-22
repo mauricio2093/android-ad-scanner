@@ -1,0 +1,44 @@
+Manifest-Version: 1.0
+
+Name: AndroidManifest.xml
+SHA1-Digest: p37oyycvVMJHqb03zFf8F63YT+U=
+
+Name: lib/armeabi-v7a/libVyN.so
+SHA1-Digest: TOVgUl0kG269VxrPv/lImQekRgU=
+
+Name: lib/armeabi-v7a/libapminsighta.so
+SHA1-Digest: CHN94zjNitmm/4iOKnI2WFssmFA=
+
+Name: lib/armeabi-v7a/libapminsightb.so
+SHA1-Digest: u440l385zEAe++fjYYGpxWwb4Kc=
+
+Name: lib/armeabi-v7a/libapplovin-native-crash-reporter.so
+SHA1-Digest: AoQvaVTzkI3SiYLjzu0k8urHK64=
+
+Name: lib/armeabi-v7a/libbuffer.so
+SHA1-Digest: /Qz4I/ZM6lkh/bUTDZofImYbwX8=
+
+Name: lib/armeabi-v7a/libdatastore_shared_counter.so
+SHA1-Digest: ymBLMtL1xUks4lwkJYVBCLkN3nY=
+
+Name: lib/armeabi-v7a/libfile_lock.so
+SHA1-Digest: bmYbzvxJluuyB9OkFYAqoU7Mwqs=
+
+Name: lib/armeabi-v7a/libnaudf.so
+SHA1-Digest: WjPwH8GcI0u9z7RIClM1W0ympUk=
+
+Name: lib/armeabi-v7a/libnms.so
+SHA1-Digest: kbr1cURditDXu7N18BMF9ydAzkw=
+
+Name: lib/armeabi-v7a/libpglarmor.so
+SHA1-Digest: LHe/rATQueZxnWDXQFEalmAwuuw=
+
+Name: lib/armeabi-v7a/libtobEmbedPagEncrypt.so
+SHA1-Digest: A9ypUhslMBo+Df9j0b5HsK59t4I=
+
+Name: lib/armeabi-v7a/libtt_ugen_layout.so
+SHA1-Digest: OmeVjMvMqROpPV6TQWAaWOnv6hc=
+
+Name: stamp-cert-sha256
+SHA1-Digest: 5vTkm69vqAbusD/fho7oWwc7j+I=
+

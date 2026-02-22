@@ -1,0 +1,47 @@
+Signature-Version: 1.0
+Created-By: 1.0 (Android)
+SHA1-Digest-Manifest: 81+fDPqH6Rymz+Odc3nAy4l0WsA=
+X-Android-APK-Signed: 2, 3
+
+Name: AndroidManifest.xml
+SHA1-Digest: XT55F5StDyagTZLK97N1HEOGsB0=
+
+Name: lib/armeabi-v7a/libVyN.so
+SHA1-Digest: KUgspblhIxUh+LkiXdAUfThzavw=
+
+Name: lib/armeabi-v7a/libapminsighta.so
+SHA1-Digest: SswNxSF5371gfeLlM8pVjJtIVO4=
+
+Name: lib/armeabi-v7a/libapminsightb.so
+SHA1-Digest: WaL8mgkZjae+UdyxHFPgSMYAYMs=
+
+Name: lib/armeabi-v7a/libapplovin-native-crash-reporter.so
+SHA1-Digest: X65ykjTET0VDoJ0acxYF01uIMNY=
+
+Name: lib/armeabi-v7a/libbuffer.so
+SHA1-Digest: wsYBKbXEp2xg/zkxi65GTqCEDQ0=
+
+Name: lib/armeabi-v7a/libdatastore_shared_counter.so
+SHA1-Digest: Tev4gFTj640tNghI6BuW+48Ro18=
+
+Name: lib/armeabi-v7a/libfile_lock.so
+SHA1-Digest: Inc/wKJpcy1sUAWAUmh7h+PSDc0=
+
+Name: lib/armeabi-v7a/libnaudf.so
+SHA1-Digest: /QE0c0U2k4iuQX8bcB72PdDpeO8=
+
+Name: lib/armeabi-v7a/libnms.so
+SHA1-Digest: DkZ82YEgrJp/zuRj6+GaJ2kE7/4=
+
+Name: lib/armeabi-v7a/libpglarmor.so
+SHA1-Digest: ZRtxnlb6YLG/Gzjll9p6SPtmI60=
+
+Name: lib/armeabi-v7a/libtobEmbedPagEncrypt.so
+SHA1-Digest: fwBICMXCuhpzWnUdYXqIi6VOO2I=
+
+Name: lib/armeabi-v7a/libtt_ugen_layout.so
+SHA1-Digest: HAVPX/QRgk9GofC1bi1HZMiYfuc=
+
+Name: stamp-cert-sha256
+SHA1-Digest: Bs40BvDZ1xrbgQrPTD2x5w/NfHQ=
+

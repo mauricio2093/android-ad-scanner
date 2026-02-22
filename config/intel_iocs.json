@@ -1,0 +1,36 @@
+{
+  "iocs": [
+    {
+      "ioc_type": "keyword",
+      "value": "com.fake.system.updater",
+      "severity": 9,
+      "confidence": 0.9,
+      "source": "local_seed",
+      "active": true
+    },
+    {
+      "ioc_type": "keyword",
+      "value": "silentinstall",
+      "severity": 8,
+      "confidence": 0.8,
+      "source": "local_seed",
+      "active": true
+    },
+    {
+      "ioc_type": "regex",
+      "value": "android\\.permission\\.BIND_ACCESSIBILITY_SERVICE",
+      "severity": 8,
+      "confidence": 0.85,
+      "source": "local_seed",
+      "active": true
+    },
+    {
+      "ioc_type": "hash_sha256",
+      "value": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      "severity": 10,
+      "confidence": 0.95,
+      "source": "local_seed",
+      "active": false
+    }
+  ]
+}

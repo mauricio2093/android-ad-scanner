@@ -1,0 +1,43 @@
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+.Python
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+build/
+dist/
+
+analisis/*.txt
+analisis/*.json
+analisis/*.md
+data/threat_intel.db
+
+*.spec.bak
+
+# Keep sample data only if intentionally versioned
+# data/
+
+# ------------------------------------------------------------
+# Privacidad: documentos personales (subir solo carpeta vacia)
+# ------------------------------------------------------------
+documentos_personales/*
+!documentos_personales/.gitkeep
+
+# ------------------------------------------------------------
+# IA / Skills: no subir artefactos o configuraciones locales
+# ------------------------------------------------------------
+.agents/
+skills/
+skills-lock.json
+
+# ------------------------------------------------------------
+# Reportes locales: no subir contenido de md/ (solo carpeta vacia)
+# ------------------------------------------------------------
+md/*
+!md/.gitkeep

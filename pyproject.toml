@@ -1,0 +1,28 @@
+[project]
+name = "android-ad-scanner"
+version = "0.2.0"
+description = "Desktop tool for Android adware triage through ADB"
+readme = "README.md"
+requires-python = ">=3.10"
+
+dependencies = []
+
+[project.scripts]
+smart-intel-scan = "smart_intel_scan:main"
+
+[project.optional-dependencies]
+ui = [
+  "ttkbootstrap>=1.14,<2"
+]
+dev = [
+  "pytest>=8.0",
+  "ruff>=0.8"
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

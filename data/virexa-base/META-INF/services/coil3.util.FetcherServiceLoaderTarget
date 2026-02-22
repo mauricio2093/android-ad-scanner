@@ -1,0 +1,2 @@
+coil3.video.internal.MediaDataSourceFetcherServiceLoaderTarget
+coil3.network.okhttp.internal.OkHttpNetworkFetcherServiceLoaderTarget

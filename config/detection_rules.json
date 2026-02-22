@@ -1,0 +1,21 @@
+{
+  "suspicious_packages": [
+    "com.example.adware",
+    "com.malicious.app",
+    "com.spyware.data"
+  ],
+  "ambiguous_patterns": [
+    "ad",
+    "track",
+    "analytics"
+  ],
+  "suspicious_permissions": [
+    "android.permission.SYSTEM_ALERT_WINDOW",
+    "android.permission.BIND_ACCESSIBILITY_SERVICE",
+    "android.permission.REQUEST_INSTALL_PACKAGES",
+    "android.permission.QUERY_ALL_PACKAGES",
+    "android.permission.READ_LOGS",
+    "android.permission.WRITE_SETTINGS",
+    "android.permission.PACKAGE_USAGE_STATS"
+  ]
+}

@@ -1,0 +1,2 @@
+# Optional modern UI theme (2026-ready visual update)
+ttkbootstrap>=1.14,<2

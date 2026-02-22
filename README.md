@@ -42,6 +42,57 @@ Puedes cambiar tema con la variable:
 export ADB_TOOL_THEME=flatly
 ```
 
+## Scripts de automatizacion
+
+### 1) Release interactivo profesional (tag + changelog + push)
+
+Bash:
+
+```bash
+./scripts/release-tag.sh
+./scripts/release-tag.sh v1.2.3 --yes-pull --yes-push --remote origin --branch main
+```
+
+PowerShell:
+
+```powershell
+.\scripts\release-tag.ps1
+.\scripts\release-tag.ps1 -Version v1.2.3 -YesPull -YesPush -Remote origin -Branch main
+```
+
+Incluye:
+
+- preflight control center (estado, unstaging, reset local seguro)
+- sync robusto con `fetch + rebase` (evita ambigüedad de pull)
+- staging guiado, commit, versionado semver, tag y push
+- salida coloreada profesional
+
+### 2) Ejecutar programa sin `.exe`
+
+```bash
+./scripts/run-app.sh
+./scripts/run-app.sh --intel -- --list-scans 20
+```
+
+```powershell
+.\scripts\run-app.ps1
+.\scripts\run-app.ps1 -Intel -- --list-scans 20
+```
+
+### 3) QA automatizado del flujo de release
+
+```bash
+./scripts/qa-release-tag.sh
+```
+
+Valida automaticamente en un repositorio temporal:
+
+- preflight interactivo
+- sync (`fetch + rebase`)
+- commit + tag + push
+- flujo con cambios sucios + auto-stash (tracked)
+- limpieza final de stash
+
 ## Pruebas
 
 ```bash

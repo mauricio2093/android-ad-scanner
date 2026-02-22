@@ -64,7 +64,7 @@ echo "dirty-change" >> app.txt
 echo "new file" > note.tmp
 
 set +e
-printf '1\ny\ny\n1\nchore: add dirty changes\nv0.0.2\ny\n' | ./scripts/release-tag.sh --branch main --remote origin > "$TMP_DIR/test2.log" 2>&1
+printf '1\ny\ny\n1\n4\nchore: add dirty changes\nv0.0.2\ny\n' | ./scripts/release-tag.sh --branch main --remote origin > "$TMP_DIR/test2.log" 2>&1
 TEST2_EXIT=$?
 set -e
 if [[ $TEST2_EXIT -ne 0 ]]; then

@@ -23,7 +23,10 @@ Examples:
 EOF
 }
 
-main_script="adb_automation_tool.py"
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+repo_root="$(cd "$script_dir/.." && pwd)"
+
+main_script_rel="adb_automation_tool.py"
 venv_path=".venv"
 python_cmd=""
 app_args=()
@@ -31,7 +34,7 @@ app_args=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --intel)
-      main_script="smart_intel_scan.py"
+      main_script_rel="smart_intel_scan.py"
       shift
       ;;
     --venv)
@@ -66,6 +69,8 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+main_script="$repo_root/$main_script_rel"
+
 if [[ ! -f "$main_script" ]]; then
   printf '[ERROR] script not found: %s\n' "$main_script" >&2
   exit 1
@@ -78,8 +83,8 @@ if [[ -n "$python_cmd" ]]; then
     exit 1
   fi
   python_bin="$python_cmd"
-elif [[ -x "$venv_path/bin/python" ]]; then
-  python_bin="$venv_path/bin/python"
+elif [[ -x "$repo_root/$venv_path/bin/python" ]]; then
+  python_bin="$repo_root/$venv_path/bin/python"
 elif command -v python3 >/dev/null 2>&1; then
   python_bin="python3"
 elif command -v python >/dev/null 2>&1; then
@@ -93,10 +98,12 @@ if ! command -v adb >/dev/null 2>&1; then
   printf '[WARN] adb was not found in PATH. Some features may fail.\n' >&2
 fi
 
+printf '[INFO] Repo root: %s\n' "$repo_root"
 printf '[INFO] Running: %s %s' "$python_bin" "$main_script"
 if [[ ${#app_args[@]} -gt 0 ]]; then
   printf ' %q' "${app_args[@]}"
 fi
 printf '\n'
 
+cd "$repo_root"
 "$python_bin" "$main_script" "${app_args[@]}"

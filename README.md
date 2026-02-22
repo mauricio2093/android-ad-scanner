@@ -50,6 +50,7 @@ Bash:
 
 ```bash
 ./scripts/release-tag.sh
+./scripts/release-tag.sh --repo /ruta/al/proyecto
 ./scripts/release-tag.sh v1.2.3 --yes-pull --yes-push --remote origin --branch main
 ```
 
@@ -57,6 +58,7 @@ PowerShell:
 
 ```powershell
 .\scripts\release-tag.ps1
+.\scripts\release-tag.ps1 -RepoPath D:\ruta\al\proyecto
 .\scripts\release-tag.ps1 -Version v1.2.3 -YesPull -YesPush -Remote origin -Branch main
 ```
 
@@ -64,8 +66,11 @@ Incluye:
 
 - preflight control center (estado, unstaging, reset local seguro)
 - sync robusto con `fetch + rebase` (evita ambigüedad de pull)
+- sugerencias automaticas de commit sin IA (heuristicas por archivos y tipo de cambio)
 - staging guiado, commit, versionado semver, tag y push
 - salida coloreada profesional
+- si no existe repo: permite `git init`, bootstrap inicial (`README` + `first commit` + `main`) y configuracion de `origin`
+- en bootstrap inicial: puedes elegir subir todo, solo README o carpetas/archivos especificos
 
 ### 2) Ejecutar programa sin `.exe`
 
@@ -92,6 +97,28 @@ Valida automaticamente en un repositorio temporal:
 - commit + tag + push
 - flujo con cambios sucios + auto-stash (tracked)
 - limpieza final de stash
+
+### 4) Compilar `.exe` moderno (PyInstaller)
+
+Bash:
+
+```bash
+./scripts/build-exe.sh --clean --install-pyinstaller
+./scripts/build-exe.sh --mode direct --name android-ad-scanner --console
+```
+
+PowerShell:
+
+```powershell
+.\scripts\build-exe.ps1 -Clean -InstallPyInstaller
+.\scripts\build-exe.ps1 -Mode direct -Name android-ad-scanner -Console
+```
+
+Notas:
+
+- `spec` usa `adb_automation_tool.spec`.
+- `direct` compila desde `adb_automation_tool.py` con parametros.
+- En Windows, el artefacto esperado queda en `dist\adb_automation_tool.exe` (o el `-Name` que indiques).
 
 ## Pruebas
 
@@ -146,18 +173,3 @@ Editar `config/detection_rules.json`:
 - `suspicious_packages`: paquetes marcados como riesgo alto.
 - `ambiguous_patterns`: patrones heurísticos (regex) para revisiones manuales.
 - `suspicious_permissions`: permisos considerados de alto riesgo.
-
-## Reportes de modernizacion
-
-Se documentaron fases en `md/`:
-
-- `md/fase-01-auditoria.md`
-- `md/fase-02-soluciones-y-actualizaciones.md`
-- `md/fase-03-implementacion-tecnica.md`
-- `md/fase-04-roadmap-modernizacion-2026.md`
-- `md/fase-05-estudio-estrategico-2026.md`
-- `md/fase-06-implementacion-inteligente.md`
-- `md/fase-07-proyectos-escalables.md`
-- `md/fase-08-ml-supervisado-y-hash-ioc.md`
-- `md/fase-09-fingerprint-attack-stix.md`
-- `md/fase-10-campaign-correlation-dashboard.md`

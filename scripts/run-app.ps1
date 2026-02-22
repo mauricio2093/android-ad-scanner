@@ -4,7 +4,7 @@ param(
     [string]$VenvPath = ".venv",
     [string]$PythonCmd = "",
     [Parameter(ValueFromRemainingArguments = $true)]
-    [string[]]$AppArgs
+    [string[]]$AppArgs = @()
 )
 
 Set-StrictMode -Version Latest
@@ -15,7 +15,19 @@ function Fail([string]$Message) {
     exit 1
 }
 
-$mainScript = if ($Intel) { "smart_intel_scan.py" } else { "adb_automation_tool.py" }
+function Test-PythonCommand([string]$CommandName) {
+    try {
+        & $CommandName -c "import sys" *> $null
+        return ($LASTEXITCODE -eq 0)
+    } catch {
+        return $false
+    }
+}
+
+$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$repoRoot = Resolve-Path (Join-Path $scriptDir "..")
+$mainScriptRel = if ($Intel) { "smart_intel_scan.py" } else { "adb_automation_tool.py" }
+$mainScript = Join-Path $repoRoot $mainScriptRel
 
 if (-not (Test-Path $mainScript)) {
     Fail "No se encontro el script: $mainScript"
@@ -23,20 +35,32 @@ if (-not (Test-Path $mainScript)) {
 
 $pythonBin = $null
 if (-not [string]::IsNullOrWhiteSpace($PythonCmd)) {
-    if (-not (Get-Command $PythonCmd -ErrorAction SilentlyContinue)) {
+    $hasPythonCmd = (Test-Path $PythonCmd) -or ($null -ne (Get-Command $PythonCmd -ErrorAction SilentlyContinue))
+    if (-not $hasPythonCmd) {
         Fail "No se encontro el comando Python: $PythonCmd"
+    }
+    if (-not (Test-PythonCommand $PythonCmd)) {
+        Fail "El comando Python indicado no se puede ejecutar: $PythonCmd"
     }
     $pythonBin = $PythonCmd
 } else {
-    $venvPython = Join-Path $VenvPath "Scripts/python.exe"
+    $venvPython = Join-Path $repoRoot "$VenvPath/Scripts/python.exe"
+    $pythonCandidates = @()
     if (Test-Path $venvPython) {
-        $pythonBin = $venvPython
-    } elseif (Get-Command python -ErrorAction SilentlyContinue) {
-        $pythonBin = "python"
-    } elseif (Get-Command py -ErrorAction SilentlyContinue) {
-        $pythonBin = "py"
-    } else {
-        Fail "No hay Python disponible (python o py)."
+        $pythonCandidates += $venvPython
+    }
+    $pythonCandidates += @("py", "python", "python3")
+
+    foreach ($candidate in $pythonCandidates) {
+        $candidateExists = (Test-Path $candidate) -or ($null -ne (Get-Command $candidate -ErrorAction SilentlyContinue))
+        if ($candidateExists -and (Test-PythonCommand $candidate)) {
+            $pythonBin = $candidate
+            break
+        }
+    }
+
+    if ($null -eq $pythonBin) {
+        Fail "No hay Python ejecutable. Instala Python o crea el venv en '$VenvPath'."
     }
 }
 
@@ -45,12 +69,21 @@ if (-not (Get-Command adb -ErrorAction SilentlyContinue)) {
 }
 
 $commandLine = "$pythonBin $mainScript"
-if ($AppArgs.Count -gt 0) {
-    $commandLine = "$commandLine $($AppArgs -join ' ')"
+$resolvedAppArgs = @()
+if ($null -ne $AppArgs) {
+    $resolvedAppArgs = @($AppArgs)
 }
+
+if ($resolvedAppArgs.Length -gt 0) {
+    $commandLine = "$commandLine $($resolvedAppArgs -join ' ')"
+}
+Write-Host "[INFO] Repo root: $repoRoot" -ForegroundColor DarkCyan
 Write-Host "[INFO] Running: $commandLine" -ForegroundColor Cyan
 
-& $pythonBin $mainScript @AppArgs
+Push-Location $repoRoot
+& $pythonBin $mainScript @resolvedAppArgs
 if ($LASTEXITCODE -ne 0) {
+    Pop-Location
     Fail "La aplicacion termino con codigo $LASTEXITCODE"
 }
+Pop-Location

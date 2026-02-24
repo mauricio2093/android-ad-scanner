@@ -6,6 +6,23 @@ The format is based on Keep a Changelog and Semantic Versioning.
 
 ## [Unreleased]
 
+## [vV0.1.1] - 2026-02-24
+
+### Summary
+
+- Release vV0.1.1
+
+### Commits
+
+- 17c639e feat(.github): add scanner workflows improvements (mauricio2093)
+
+### Files
+
+- .github/workflows/ci.yml
+- .github/workflows/release.yml
+- README.md
+- adb_automation_tool.py
+
 ## [v0.1.0] - 2026-02-22
 
 ### Summary
@@ -51,5 +68,6 @@ The format is based on Keep a Changelog and Semantic Versioning.
 - scripts/release-tag.sh
 - scripts/run-app.ps1
 - scripts/run-app.sh
+
 
 

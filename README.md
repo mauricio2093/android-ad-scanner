@@ -126,6 +126,23 @@ Notas:
 python -m unittest discover -s tests -p "test_*.py"
 ```
 
+## CI/CD (GitHub Actions)
+
+Se incluyen dos workflows en `.github/workflows`:
+
+- `ci.yml`:
+  - Trigger: `push` (main/master/develop), `pull_request`, `workflow_dispatch`.
+  - Ejecuta: ruff (checks criticos), compile check, unit tests, smoke CLI y validacion sintactica de scripts bash.
+  - Incluye QA del flujo de release (`scripts/qa-release-tag.sh`) fuera de PR.
+
+- `release.yml`:
+  - Trigger: tags semver `v*.*.*` y manual (`workflow_dispatch`).
+  - Build multiplataforma: Linux + Windows (PyInstaller).
+  - Publica release automatica en GitHub (solo en tags) con:
+    - `android-ad-scanner-linux.zip`
+    - `android-ad-scanner-windows.zip`
+    - `SHA256SUMS.txt`
+
 ## Escaneo Inteligente (nuevo)
 
 El GUI ahora incluye:

@@ -4,6 +4,7 @@ import datetime
 import json
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -88,6 +89,8 @@ class ADBAutomationTool:
         self.devices: list[str] = []
         self.analysis_files: list[Path] = []
         self.gemini_analysis_content: str | None = None
+        self.ai_analysis_outputs: dict[str, str] = {}
+        self.last_ai_provider_used: str | None = None
 
         self.logcat_process: subprocess.Popen[str] | None = None
         self.logcat_lock = threading.Lock()
@@ -128,6 +131,15 @@ class ADBAutomationTool:
         self.workspace_tab_buttons: dict[str, tk.Button] = {}
         self.active_workspace = "operations"
         self.intel_stats_signature = ""
+        self.ai_cli_providers = self._build_ai_cli_providers()
+        self.ai_provider_var = tk.StringVar(value="gemini")
+        self.ai_mode_profiles = self._build_ai_mode_profiles()
+        self.ai_mode_var = tk.StringVar(value="integral")
+        self.ai_consistent_output_var = tk.BooleanVar(value=True)
+        self.ai_cli_status: dict[str, dict[str, str | bool]] = {
+            key: {"available": False, "detail": "No detectado", "version": ""}
+            for key in self.ai_cli_providers
+        }
 
         self._load_brand_assets()
         self._configure_theme()
@@ -135,7 +147,7 @@ class ADBAutomationTool:
         self._load_detection_rules()
         self._init_intelligence_layer()
         self.check_adb_path()
-        self.check_gemini_installed()
+        self.check_ai_cli_integrations()
 
     def _fit_photo_image(
         self,
@@ -210,6 +222,78 @@ class ADBAutomationTool:
             except tk.TclError:
                 self.header_logo_image = None
                 self.header_logo_display = None
+
+    def _build_ai_cli_providers(self) -> dict[str, dict[str, object]]:
+        return {
+            "gemini": {
+                "label": "Gemini",
+                "binary": "gemini",
+                "binaries": ["gemini"],
+                "version_args": ["--version"],
+                "version_probes": [["--version"], ["version"], ["--help"]],
+                "default_args": ["-p", "{prompt}", "{input}"],
+                "log_name": "Analisis_Gemini",
+            },
+            "claude": {
+                "label": "Claude",
+                "binary": "claude",
+                "binaries": ["claude", "claude-cli"],
+                "version_args": ["--version"],
+                "version_probes": [["--version"], ["version"], ["--help"]],
+                "default_args": ["-p", "{prompt}", "{input}"],
+                "log_name": "Analisis_Claude",
+            },
+            "codex": {
+                "label": "Codex",
+                "binary": "codex",
+                "binaries": ["codex", "codex-cli"],
+                "version_args": ["--version"],
+                "version_probes": [["--version"], ["version"], ["-v"], ["--help"]],
+                "default_args": ["exec", "{prompt}", "{input}"],
+                "log_name": "Analisis_Codex",
+            },
+            "qwen": {
+                "label": "Qwen",
+                "binary": "qwen",
+                "binaries": ["qwen", "qwen-cli", "qwen-coder"],
+                "version_args": ["--version"],
+                "version_probes": [["--version"], ["version"], ["-v"], ["--help"]],
+                "default_args": ["-p", "{prompt}", "{input}"],
+                "log_name": "Analisis_Qwen",
+            },
+        }
+
+    def _build_ai_mode_profiles(self) -> dict[str, dict[str, str]]:
+        return {
+            "integral": {
+                "label": "Analisis Integral",
+                "focus": (
+                    "Entrega diagnostico + evidencia + explicacion tecnica + plan de accion "
+                    "con priorizacion operativa."
+                ),
+            },
+            "explicacion": {
+                "label": "Explicacion Tecnica",
+                "focus": (
+                    "Explica claramente el comportamiento detectado, causas probables y "
+                    "riesgo para toma de decisiones."
+                ),
+            },
+            "forense": {
+                "label": "Investigacion Forense",
+                "focus": (
+                    "Prioriza correlacion de IOC, tecnicas ATT&CK, trazas relevantes y "
+                    "timeline de eventos observables."
+                ),
+            },
+            "code": {
+                "label": "Code/Automatizacion",
+                "focus": (
+                    "Genera scripts, comandos y pseudo-implementacion para automatizar "
+                    "deteccion, remediacion y validacion."
+                ),
+            },
+        }
 
     def _configure_theme(self) -> None:
         self.ui_tokens = {
@@ -537,13 +621,13 @@ class ADBAutomationTool:
         self.metric_active_device = tk.StringVar(value="Ninguno")
         self.metric_reports_count = tk.StringVar(value="0")
         self.metric_intel_state = tk.StringVar(value="No inicializada")
-        self.metric_gemini_state = tk.StringVar(value="No detectado")
+        self.metric_ai_state = tk.StringVar(value="Sin detectar")
 
         self._create_metric_card(metrics_frame, 0, "Dispositivos", self.metric_devices_count, "Conectados por ADB")
         self._create_metric_card(metrics_frame, 1, "Activo", self.metric_active_device, "Dispositivo seleccionado")
         self._create_metric_card(metrics_frame, 2, "Reportes", self.metric_reports_count, "Analisis guardados")
         self._create_metric_card(metrics_frame, 3, "Intelligence", self.metric_intel_state, "Pipeline defensivo")
-        self._create_metric_card(metrics_frame, 4, "Gemini CLI", self.metric_gemini_state, "Estado de integracion")
+        self._create_metric_card(metrics_frame, 4, "AI CLI", self.metric_ai_state, "Proveedor seleccionado")
 
         tabs_bar = tk.Frame(
             workspace_column,
@@ -775,25 +859,88 @@ class ADBAutomationTool:
         self.analysis_buttons_frame.grid_columnconfigure(0, weight=1)
         self.analysis_buttons_frame.grid_columnconfigure(1, weight=1)
 
-        self.analyze_gemini_button = self._create_modern_button(
+        provider_row = tk.Frame(self.analysis_buttons_frame, bg=self.ui_tokens["surface_1"])
+        provider_row.grid(row=0, column=0, columnspan=2, sticky="ew", padx=6, pady=(0, 4))
+        provider_row.grid_columnconfigure(1, weight=1)
+        provider_row.grid_columnconfigure(3, weight=1)
+        tk.Label(
+            provider_row,
+            text="Proveedor IA:",
+            bg=self.ui_tokens["surface_1"],
+            fg=self.ui_tokens["text"],
+            font=self.ui_fonts["body"],
+        ).grid(row=0, column=0, sticky="w", padx=(0, 8))
+        self.ai_provider_combo = ttk.Combobox(
+            provider_row,
+            textvariable=self.ai_provider_var,
+            state="readonly",
+            values=list(self.ai_cli_providers.keys()),
+        )
+        self.ai_provider_combo.grid(row=0, column=1, sticky="ew")
+        self.ai_provider_combo.bind("<<ComboboxSelected>>", self._on_ai_provider_changed)
+
+        tk.Label(
+            provider_row,
+            text="Modo:",
+            bg=self.ui_tokens["surface_1"],
+            fg=self.ui_tokens["text"],
+            font=self.ui_fonts["body"],
+        ).grid(row=0, column=2, sticky="w", padx=(12, 8))
+        self.ai_mode_combo = ttk.Combobox(
+            provider_row,
+            textvariable=self.ai_mode_var,
+            state="readonly",
+            values=list(self.ai_mode_profiles.keys()),
+        )
+        self.ai_mode_combo.grid(row=0, column=3, sticky="ew")
+        self.ai_mode_combo.bind("<<ComboboxSelected>>", self._on_ai_provider_changed)
+
+        options_row = tk.Frame(self.analysis_buttons_frame, bg=self.ui_tokens["surface_1"])
+        options_row.grid(row=1, column=0, columnspan=2, sticky="ew", padx=6, pady=(0, 2))
+        options_row.grid_columnconfigure(0, weight=1)
+        self.consistency_check = tk.Checkbutton(
+            options_row,
+            text="Salida consistente (secciones estandar)",
+            variable=self.ai_consistent_output_var,
+            bg=self.ui_tokens["surface_1"],
+            fg=self.ui_tokens["muted"],
+            selectcolor=self.ui_tokens["surface_2"],
+            activebackground=self.ui_tokens["surface_1"],
+            activeforeground=self.ui_tokens["text"],
+            font=("Segoe UI", 9),
+            relief="flat",
+            highlightthickness=0,
+            bd=0,
+        )
+        self.consistency_check.grid(row=0, column=0, sticky="w")
+
+        self.analyze_ai_button = self._create_modern_button(
             self.analysis_buttons_frame,
-            text="Analizar con Gemini",
-            command=self.analyze_with_gemini,
+            text="Analizar con IA seleccionada",
+            command=self.analyze_with_selected_ai,
             variant="primary",
         )
-        self.analyze_gemini_button.configure(state="disabled")
-        self.analyze_gemini_button.grid(row=0, column=0, padx=6, pady=6, sticky="ew")
+        self.analyze_ai_button.configure(state="disabled")
+        self.analyze_ai_button.grid(row=2, column=0, padx=6, pady=6, sticky="ew")
 
-        self.gemini_info_text = tk.StringVar(value="Gemini CLI no detectado.")
+        self.test_ai_button = self._create_modern_button(
+            self.analysis_buttons_frame,
+            text="Probar proveedor seleccionado",
+            command=self.test_selected_ai_provider,
+            variant="ghost",
+        )
+        self.test_ai_button.grid(row=2, column=1, padx=6, pady=6, sticky="ew")
+
+        self.ai_info_text = tk.StringVar(value="Detectando integraciones de AI CLI...")
         tk.Label(
             self.analysis_buttons_frame,
-            textvariable=self.gemini_info_text,
+            textvariable=self.ai_info_text,
             bg=self.ui_tokens["surface_1"],
             fg=self.ui_tokens["muted"],
             justify="left",
             wraplength=420,
             font=self.ui_fonts["body"],
-        ).grid(row=0, column=1, padx=6, pady=6, sticky="w")
+        ).grid(row=3, column=0, columnspan=2, padx=6, pady=6, sticky="w")
 
         self.intelligent_scan_button = self._create_modern_button(
             self.analysis_buttons_frame,
@@ -802,7 +949,7 @@ class ADBAutomationTool:
             variant="action",
         )
         self.intelligent_scan_button.configure(state="disabled")
-        self.intelligent_scan_button.grid(row=1, column=0, padx=6, pady=6, sticky="ew")
+        self.intelligent_scan_button.grid(row=4, column=0, padx=6, pady=6, sticky="ew")
 
         self.rebuild_baseline_button = self._create_modern_button(
             self.analysis_buttons_frame,
@@ -811,7 +958,7 @@ class ADBAutomationTool:
             variant="action",
         )
         self.rebuild_baseline_button.configure(state="disabled")
-        self.rebuild_baseline_button.grid(row=1, column=1, padx=6, pady=6, sticky="ew")
+        self.rebuild_baseline_button.grid(row=4, column=1, padx=6, pady=6, sticky="ew")
 
         self.label_malicious_button = self._create_modern_button(
             self.analysis_buttons_frame,
@@ -820,7 +967,7 @@ class ADBAutomationTool:
             variant="action",
         )
         self.label_malicious_button.configure(state="disabled")
-        self.label_malicious_button.grid(row=2, column=0, padx=6, pady=6, sticky="ew")
+        self.label_malicious_button.grid(row=5, column=0, padx=6, pady=6, sticky="ew")
 
         self.label_benign_button = self._create_modern_button(
             self.analysis_buttons_frame,
@@ -829,7 +976,7 @@ class ADBAutomationTool:
             variant="action",
         )
         self.label_benign_button.configure(state="disabled")
-        self.label_benign_button.grid(row=2, column=1, padx=6, pady=6, sticky="ew")
+        self.label_benign_button.grid(row=5, column=1, padx=6, pady=6, sticky="ew")
 
         self.train_model_button = self._create_modern_button(
             self.analysis_buttons_frame,
@@ -838,7 +985,7 @@ class ADBAutomationTool:
             variant="action",
         )
         self.train_model_button.configure(state="disabled")
-        self.train_model_button.grid(row=3, column=0, columnspan=2, padx=6, pady=6, sticky="ew")
+        self.train_model_button.grid(row=6, column=0, columnspan=2, padx=6, pady=6, sticky="ew")
 
         self.export_stix_button = self._create_modern_button(
             self.analysis_buttons_frame,
@@ -847,7 +994,7 @@ class ADBAutomationTool:
             variant="action",
         )
         self.export_stix_button.configure(state="disabled")
-        self.export_stix_button.grid(row=4, column=0, columnspan=2, padx=6, pady=6, sticky="ew")
+        self.export_stix_button.grid(row=7, column=0, columnspan=2, padx=6, pady=6, sticky="ew")
 
         self.campaign_dashboard_button = self._create_modern_button(
             self.analysis_buttons_frame,
@@ -856,7 +1003,7 @@ class ADBAutomationTool:
             variant="action",
         )
         self.campaign_dashboard_button.configure(state="disabled")
-        self.campaign_dashboard_button.grid(row=5, column=0, columnspan=2, padx=6, pady=6, sticky="ew")
+        self.campaign_dashboard_button.grid(row=8, column=0, columnspan=2, padx=6, pady=6, sticky="ew")
 
         self.intel_info_text = tk.StringVar(value="Intelligence layer no inicializada.")
         tk.Label(
@@ -867,7 +1014,7 @@ class ADBAutomationTool:
             justify="left",
             wraplength=520,
             font=("Segoe UI", 9),
-        ).grid(row=6, column=0, columnspan=2, padx=6, pady=(8, 4), sticky="w")
+        ).grid(row=9, column=0, columnspan=2, padx=6, pady=(8, 4), sticky="w")
 
         intel_stats_frame = tk.LabelFrame(
             intelligence_page,
@@ -1197,7 +1344,7 @@ class ADBAutomationTool:
             except OSError:
                 db_mtime = 0
 
-        return f"{analysis_count}:{analysis_mtime}:{db_mtime}:{self.metric_gemini_state.get()}"
+        return f"{analysis_count}:{analysis_mtime}:{db_mtime}:{self.metric_ai_state.get()}"
 
     def _parse_iso_datetime(self, value: str) -> datetime.datetime | None:
         try:
@@ -2287,7 +2434,7 @@ class ADBAutomationTool:
         self._run_background(worker, status="Generando dashboard de campanas...")
 
     def download_analysis(self) -> None:
-        if not self.analysis_files and not self.gemini_analysis_content:
+        if not self.analysis_files and not self.ai_analysis_outputs:
             self.append_output("No hay archivos de analisis para descargar.\n")
             return
 
@@ -2312,18 +2459,242 @@ class ADBAutomationTool:
                     f"Se copiaron {copied_count} archivos de analisis a: {destination_path}\n"
                 )
 
-            if self.gemini_analysis_content:
-                gemini_filename = (
-                    f"analisis_gemini_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+            for provider_key, content in self.ai_analysis_outputs.items():
+                if not content.strip():
+                    continue
+                provider_filename = (
+                    f"analisis_{provider_key}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
                 )
-                gemini_filepath = destination_path / gemini_filename
-                gemini_filepath.write_text(self.gemini_analysis_content, encoding="utf-8")
-                self.append_output(f"Analisis de Gemini guardado en: {gemini_filepath}\n")
+                provider_filepath = destination_path / provider_filename
+                provider_filepath.write_text(content, encoding="utf-8")
+                self.append_output(f"Analisis de {provider_key.title()} guardado en: {provider_filepath}\n")
 
         except Exception as exc:
             self.append_output(f"Error al descargar archivos de analisis: {exc}\n")
 
-    def analyze_with_gemini(self) -> None:
+    def _get_selected_ai_provider(self) -> str:
+        key = self.ai_provider_var.get().strip().lower()
+        if key not in self.ai_cli_providers:
+            return "gemini"
+        return key
+
+    def _get_selected_ai_mode(self) -> str:
+        key = self.ai_mode_var.get().strip().lower()
+        if key not in self.ai_mode_profiles:
+            return "integral"
+        return key
+
+    def _build_ai_prompt(self, provider_key: str, mode_key: str) -> str:
+        provider = self.ai_cli_providers.get(provider_key, self.ai_cli_providers["gemini"])
+        mode = self.ai_mode_profiles.get(mode_key, self.ai_mode_profiles["integral"])
+        provider_label = str(provider["label"])
+        mode_label = str(mode["label"])
+        mode_focus = str(mode["focus"])
+
+        section_requirements = (
+            "Responde SIEMPRE en markdown con estas secciones exactas:\n"
+            "## Resumen Ejecutivo\n"
+            "## Diagnostico\n"
+            "## Evidencia Clave\n"
+            "## Analisis Tecnico\n"
+            "## Hipotesis y Confianza\n"
+            "## Plan de Accion\n"
+            "## Comandos ADB\n"
+            "## Riesgos y Seguimiento\n"
+        )
+        if mode_key == "code":
+            section_requirements += "## Automatizacion Sugerida\n"
+
+        consistency_block = (
+            "No uses respuestas ambiguas ni genericas. "
+            "Prioriza acciones concretas y verificables para un analista SOC.\n"
+        )
+
+        if not self.ai_consistent_output_var.get():
+            section_requirements = (
+                "Estructura libre, pero debe incluir diagnostico, evidencia y plan de accion.\n"
+            )
+            consistency_block = "Mantener enfoque tecnico-operativo.\n"
+
+        return (
+            f"Eres un analista senior de ciberseguridad Android. Provider actual: {provider_label}. "
+            f"Modo activo: {mode_label}. Objetivo del modo: {mode_focus}\n"
+            "Recibiras un consolidado de logs/evidencia ADB. "
+            "No des explicaciones basicas ni texto de relleno.\n"
+            f"{section_requirements}"
+            f"{consistency_block}"
+            "Incluye prioridad (Alta/Media/Baja) para cada accion relevante y "
+            "especifica limites de confianza cuando aplique."
+        )
+
+    def _normalize_ai_analysis_output(self, raw_output: str, *, mode_key: str) -> str:
+        clean_output = raw_output.strip()
+        if not clean_output:
+            return "(Sin salida textual del CLI seleccionado.)"
+        if not self.ai_consistent_output_var.get():
+            return clean_output
+
+        required_sections = [
+            "## Resumen Ejecutivo",
+            "## Diagnostico",
+            "## Evidencia Clave",
+            "## Analisis Tecnico",
+            "## Hipotesis y Confianza",
+            "## Plan de Accion",
+            "## Comandos ADB",
+            "## Riesgos y Seguimiento",
+        ]
+        if mode_key == "code":
+            required_sections.append("## Automatizacion Sugerida")
+
+        lower_content = clean_output.lower()
+        missing_sections = [
+            section for section in required_sections if section.lower() not in lower_content
+        ]
+        if not missing_sections:
+            return clean_output
+
+        summary_preview = " ".join(clean_output.splitlines()[:6]).strip()
+        if not summary_preview:
+            summary_preview = "El modelo no devolvio resumen estructurado."
+        missing_text = ", ".join(section.replace("## ", "") for section in missing_sections)
+
+        normalized = [
+            "## Resumen Ejecutivo",
+            summary_preview,
+            "",
+            "## Diagnostico",
+            "Salida recibida sin estructura completa. Se conserva contenido original para revision.",
+            "",
+            "## Evidencia Clave",
+            "- Revisar bloque 'Analisis Tecnico (raw)' para extraer indicadores concretos.",
+            "",
+            "## Analisis Tecnico",
+            "### Analisis Tecnico (raw)",
+            clean_output,
+            "",
+            "## Hipotesis y Confianza",
+            f"Faltaron secciones requeridas: {missing_text}. Confianza: media-baja.",
+            "",
+            "## Plan de Accion",
+            "1. Reintentar analisis con el mismo proveedor en modo consistente.",
+            "2. Validar manualmente IOC, permisos y trazas en consola.",
+            "",
+            "## Comandos ADB",
+            "- adb shell dumpsys package <paquete>",
+            "- adb shell pm list packages -f",
+            "- adb logcat | grep -i <keyword>",
+            "",
+            "## Riesgos y Seguimiento",
+            "- Riesgo de interpretacion incompleta por respuesta no estructurada.",
+        ]
+        if mode_key == "code":
+            normalized.extend(
+                [
+                    "",
+                    "## Automatizacion Sugerida",
+                    "- Implementar parser de evidencias y scoring automatico en pipeline local.",
+                ]
+            )
+        return "\n".join(normalized)
+
+    def _build_ai_cli_command(self, provider_key: str, prompt: str, input_path: str) -> list[str]:
+        provider = self.ai_cli_providers[provider_key]
+        binary_env_key = f"ADB_TOOL_AI_{provider_key.upper()}_BIN"
+        configured_binary = os.getenv(binary_env_key, "").strip()
+        if configured_binary:
+            binary = configured_binary
+        else:
+            detected_binary = str(self.ai_cli_status.get(provider_key, {}).get("binary", "")).strip()
+            if detected_binary:
+                binary = detected_binary
+            else:
+                binary = str(provider["binary"])
+        override_env_key = f"ADB_TOOL_AI_{provider_key.upper()}_ARGS"
+        override_args = os.getenv(override_env_key, "").strip()
+        if override_args:
+            override_tokens = shlex.split(override_args)
+            resolved_tokens = [
+                token.format(prompt=prompt, input=input_path)
+                for token in override_tokens
+            ]
+            return [binary, *resolved_tokens]
+
+        default_tokens = [str(value) for value in provider["default_args"]]
+        resolved_tokens = [
+            token.format(prompt=prompt, input=input_path)
+            for token in default_tokens
+        ]
+        return [binary, *resolved_tokens]
+
+    def _resolve_ai_provider_binary(self, provider_key: str) -> str:
+        provider = self.ai_cli_providers[provider_key]
+        binary_env_key = f"ADB_TOOL_AI_{provider_key.upper()}_BIN"
+        configured_binary = os.getenv(binary_env_key, "").strip()
+        if configured_binary:
+            return configured_binary
+
+        configured_status_binary = str(self.ai_cli_status.get(provider_key, {}).get("binary", "")).strip()
+        if configured_status_binary:
+            return configured_status_binary
+
+        candidates = [str(provider["binary"])]
+        for candidate in provider.get("binaries", []):
+            candidate_str = str(candidate).strip()
+            if candidate_str and candidate_str not in candidates:
+                candidates.append(candidate_str)
+
+        for candidate in candidates:
+            if shutil.which(candidate):
+                return candidate
+        return str(provider["binary"])
+
+    def _probe_cli_command(self, binary: str, args: Sequence[str]) -> tuple[bool, str]:
+        try:
+            result = subprocess.run(
+                [binary, *list(args)],
+                check=False,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=20,
+            )
+        except FileNotFoundError:
+            return (False, "")
+        except Exception as exc:
+            return (False, str(exc))
+
+        combined = ((result.stdout or "") + "\n" + (result.stderr or "")).strip()
+        if result.returncode == 0:
+            return (True, combined)
+        # Algunos CLIs devuelven !=0 para flags de version/ayuda pero igual confirman presencia.
+        if combined:
+            return (True, combined)
+        return (False, "")
+
+    def _collect_analysis_context(self) -> str:
+        text_files = sorted(self.analysis_dir.glob("*.txt"))
+        payload = ""
+        for filepath in text_files:
+            file_content = filepath.read_text(encoding="utf-8", errors="replace")
+            payload += f"--- Contenido de {filepath.name} ---\n\n{file_content}\n\n"
+        return payload
+
+    def analyze_with_selected_ai(self) -> None:
+        provider_key = self._get_selected_ai_provider()
+        mode_key = self._get_selected_ai_mode()
+        provider = self.ai_cli_providers.get(provider_key, self.ai_cli_providers["gemini"])
+        provider_label = str(provider["label"])
+        mode_label = str(self.ai_mode_profiles.get(mode_key, {}).get("label", mode_key))
+
+        if not bool(self.ai_cli_status.get(provider_key, {}).get("available", False)):
+            self.handle_command_error(
+                f"{provider_label} CLI no detectado o no disponible en PATH.",
+                f"Analisis_{provider_label}",
+            )
+            return
+
         text_files = sorted(self.analysis_dir.glob("*.txt"))
         if not text_files:
             self.append_output(
@@ -2331,27 +2702,22 @@ class ADBAutomationTool:
             )
             return
 
-        self.append_output("Analizando con Gemini...\n")
+        self.append_output(f"Analizando con {provider_label} [{mode_label}]...\n")
 
         def worker() -> None:
-            full_analysis_content = ""
             try:
-                for filepath in text_files:
-                    file_content = filepath.read_text(encoding="utf-8", errors="replace")
-                    full_analysis_content += (
-                        f"--- Contenido de {filepath.name} ---\n\n{file_content}\n\n"
-                    )
+                full_analysis_content = self._collect_analysis_context()
             except Exception as exc:
                 self.handle_command_error(
                     f"Error al leer archivos de analisis: {exc}",
-                    "Analisis_Gemini",
+                    f"Analisis_{provider_label}",
                 )
                 return
 
             if not full_analysis_content.strip():
                 self.handle_command_error(
                     "El contenido consolidado de analisis esta vacio.",
-                    "Analisis_Gemini",
+                    f"Analisis_{provider_label}",
                 )
                 return
 
@@ -2366,38 +2732,40 @@ class ADBAutomationTool:
                     temp_file.write(full_analysis_content)
                     temp_filepath = temp_file.name
 
-                prompt = (
-                    "Actua como analista de ciberseguridad senior especializado en Android. "
-                    "Recibiras logs de ADB concatenados y debes entregar informe concluyente. "
-                    "Formato: 1) Diagnostico definitivo, 2) Evidencia clave, 3) Plan de remediacion "
-                    "con comandos ADB exactos. Sin explicaciones basicas y sin preguntas finales. "
-                    "Respuesta en espanol tecnico y directo."
+                prompt = self._build_ai_prompt(provider_key=provider_key, mode_key=mode_key)
+
+                command = self._build_ai_cli_command(provider_key, prompt, temp_filepath)
+                result = self._run_subprocess(command, timeout=300)
+
+                analysis_content = self._normalize_ai_analysis_output(
+                    result.stdout.strip(),
+                    mode_key=mode_key,
                 )
 
-                result = self._run_subprocess(
-                    ["gemini", "-p", prompt, temp_filepath],
-                    timeout=240,
-                )
+                self.last_ai_provider_used = provider_key
+                self.ai_analysis_outputs[provider_key] = analysis_content
+                if provider_key == "gemini":
+                    self.gemini_analysis_content = analysis_content
 
-                self.gemini_analysis_content = result.stdout.strip()
-                self.append_output("--- Analisis de Gemini ---\n")
-                self.append_output(self.gemini_analysis_content + "\n")
-                self.append_output("--- Fin del Analisis de Gemini ---\n")
-                self._save_analysis_log("Analisis_Gemini", self.gemini_analysis_content)
+                log_name = str(provider.get("log_name", f"Analisis_{provider_label}"))
+                self.append_output(f"--- Analisis de {provider_label} [{mode_label}] ---\n")
+                self.append_output(analysis_content + "\n")
+                self.append_output(f"--- Fin del Analisis de {provider_label} [{mode_label}] ---\n")
+                self._save_analysis_log(log_name, analysis_content)
             except FileNotFoundError:
                 self.handle_command_error(
-                    "Gemini CLI no encontrado. Instale Gemini CLI y agreguelo al PATH.",
-                    "Analisis_Gemini",
+                    f"{provider_label} CLI no encontrado. Instale el CLI y agreguelo al PATH.",
+                    f"Analisis_{provider_label}",
                 )
             except subprocess.TimeoutExpired:
                 self.handle_command_error(
-                    "Tiempo de espera agotado durante el analisis con Gemini.",
-                    "Analisis_Gemini",
+                    f"Tiempo de espera agotado durante el analisis con {provider_label}.",
+                    f"Analisis_{provider_label}",
                 )
             except subprocess.CalledProcessError as exc:
                 self.handle_command_error(
                     self._format_subprocess_error(exc),
-                    "Analisis_Gemini",
+                    f"Analisis_{provider_label}",
                 )
             finally:
                 if temp_filepath and Path(temp_filepath).exists():
@@ -2406,7 +2774,61 @@ class ADBAutomationTool:
                     except OSError:
                         pass
 
-        self._run_background(worker, status="Analizando con Gemini...")
+        self._run_background(worker, status=f"Analizando con {provider_label} [{mode_label}]...")
+
+    def analyze_with_gemini(self) -> None:
+        self.ai_provider_var.set("gemini")
+        self.analyze_with_selected_ai()
+
+    def test_selected_ai_provider(self) -> None:
+        provider_key = self._get_selected_ai_provider()
+        provider = self.ai_cli_providers.get(provider_key, self.ai_cli_providers["gemini"])
+        provider_label = str(provider["label"])
+        version_env_key = f"ADB_TOOL_AI_{provider_key.upper()}_VERSION_ARGS"
+        binary = self._resolve_ai_provider_binary(provider_key)
+        version_override = os.getenv(version_env_key, "").strip()
+        if version_override:
+            version_args = shlex.split(version_override)
+        else:
+            version_args = [str(value) for value in provider["version_args"]]
+
+        self.append_output(
+            f"Probando proveedor {provider_label} con comando: {binary} {' '.join(version_args)}\n"
+        )
+
+        def worker() -> None:
+            try:
+                ok, detail = self._probe_cli_command(binary, version_args)
+                if ok:
+                    first_line = detail.splitlines()[0].strip() if detail else "Disponible"
+                    self.ai_cli_status[provider_key] = {
+                        "available": True,
+                        "detail": "Disponible",
+                        "version": first_line,
+                        "binary": binary,
+                    }
+                    self.append_output(f"{provider_label} OK: {first_line}\n")
+                else:
+                    error_detail = detail or "No disponible"
+                    self.ai_cli_status[provider_key] = {
+                        "available": False,
+                        "detail": error_detail,
+                        "version": "",
+                        "binary": "",
+                    }
+                    self.append_output(f"{provider_label} fallo: {error_detail}\n")
+            except Exception as exc:
+                self.ai_cli_status[provider_key] = {
+                    "available": False,
+                    "detail": f"Error: {exc}",
+                    "version": "",
+                    "binary": "",
+                }
+                self.append_output(f"Error probando {provider_label}: {exc}\n")
+            finally:
+                self.master.after(0, self._refresh_ai_provider_ui_state)
+
+        self._run_background(worker, status=f"Probando {provider_label}...")
 
     def check_adb_path(self) -> None:
         try:
@@ -2428,36 +2850,102 @@ class ADBAutomationTool:
         except Exception as exc:
             self.append_output(f"Error al verificar ADB: {exc}\n")
 
-    def check_gemini_installed(self) -> None:
-        try:
-            result = subprocess.run(
-                ["gemini", "--version"],
-                check=False,
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                timeout=20,
-            )
-            if result.returncode == 0:
-                version = result.stdout.strip() or "Gemini CLI detectado"
-                self.gemini_info_text.set(f"Gemini CLI detectado: {version}")
-                self.analyze_gemini_button.config(state="normal")
-                self.metric_gemini_state.set("Disponible")
+    def _on_ai_provider_changed(self, _event=None) -> None:
+        self._refresh_ai_provider_ui_state()
+
+    def _refresh_ai_provider_ui_state(self) -> None:
+        provider_key = self._get_selected_ai_provider()
+        mode_key = self._get_selected_ai_mode()
+        provider = self.ai_cli_providers.get(provider_key, self.ai_cli_providers["gemini"])
+        mode = self.ai_mode_profiles.get(mode_key, self.ai_mode_profiles["integral"])
+        provider_label = str(provider["label"])
+        mode_label = str(mode["label"])
+        status = self.ai_cli_status.get(provider_key, {})
+        available = bool(status.get("available", False))
+        detail = str(status.get("detail", "No detectado"))
+        version = str(status.get("version", "")).strip()
+
+        if available:
+            info_text = f"{provider_label} CLI detectado."
+            if version:
+                info_text = f"{provider_label} CLI detectado: {version}"
+            info_text += f" | Modo: {mode_label}"
+            self.ai_info_text.set(info_text)
+            self.analyze_ai_button.config(state="normal")
+            self.test_ai_button.config(state="normal")
+        else:
+            self.ai_info_text.set(f"{provider_label} CLI no disponible: {detail} | Modo: {mode_label}")
+            self.analyze_ai_button.config(state="disabled")
+            self.test_ai_button.config(state="normal")
+
+        available_count = sum(
+            1 for value in self.ai_cli_status.values() if bool(value.get("available", False))
+        )
+        selected_label = provider_label if available else "sin proveedor"
+        self.metric_ai_state.set(
+            f"{selected_label}/{mode_key} ({available_count}/{len(self.ai_cli_status)})"
+        )
+
+    def check_ai_cli_integrations(self) -> None:
+        detected_by_provider: dict[str, dict[str, str | bool]] = {}
+        for provider_key, provider in self.ai_cli_providers.items():
+            version_env_key = f"ADB_TOOL_AI_{provider_key.upper()}_VERSION_ARGS"
+            binary = self._resolve_ai_provider_binary(provider_key)
+            version_override = os.getenv(version_env_key, "").strip()
+            probes: list[list[str]] = []
+            if version_override:
+                probes.append(shlex.split(version_override))
             else:
-                detail = result.stderr.strip() or "No disponible"
-                self.gemini_info_text.set(f"Gemini CLI no disponible: {detail}")
-                self.analyze_gemini_button.config(state="disabled")
-                self.metric_gemini_state.set("No disponible")
-        except FileNotFoundError:
-            self.gemini_info_text.set("Gemini CLI no encontrado en PATH.")
-            self.analyze_gemini_button.config(state="disabled")
-            self.metric_gemini_state.set("No detectado")
-        except Exception as exc:
-            self.gemini_info_text.set(f"Error validando Gemini CLI: {exc}")
-            self.analyze_gemini_button.config(state="disabled")
-            self.metric_gemini_state.set("Error")
+                configured_probes = provider.get("version_probes", [])
+                if isinstance(configured_probes, list):
+                    for probe in configured_probes:
+                        if isinstance(probe, list):
+                            probes.append([str(value) for value in probe])
+                if not probes:
+                    probes.append([str(value) for value in provider["version_args"]])
+
+            status = {"available": False, "detail": "No detectado", "version": "", "binary": ""}
+            if not shutil.which(binary):
+                status["detail"] = "No encontrado en PATH"
+                detected_by_provider[provider_key] = status
+                continue
+
+            probe_success = False
+            probe_text = ""
+            for probe_args in probes:
+                ok, detail = self._probe_cli_command(binary, probe_args)
+                if ok:
+                    probe_success = True
+                    probe_text = detail
+                    break
+
+            if probe_success:
+                first_line = probe_text.splitlines()[0].strip() if probe_text else "Disponible"
+                status["available"] = True
+                status["detail"] = "Disponible"
+                status["version"] = first_line
+                status["binary"] = binary
+            else:
+                # Si el binario existe pero no respondió a probes, igual se marca detectado.
+                status["available"] = True
+                status["detail"] = "Detectado en PATH (sin respuesta de version)"
+                status["version"] = ""
+                status["binary"] = binary
+            detected_by_provider[provider_key] = status
+
+        self.ai_cli_status = detected_by_provider
+        selected_provider = self._get_selected_ai_provider()
+        if not bool(self.ai_cli_status.get(selected_provider, {}).get("available", False)):
+            for provider_key, status in self.ai_cli_status.items():
+                if bool(status.get("available", False)):
+                    self.ai_provider_var.set(provider_key)
+                    break
+
+        self._refresh_ai_provider_ui_state()
         self._refresh_intelligence_statistics(force=True)
+
+    def check_gemini_installed(self) -> None:
+        self.check_ai_cli_integrations()
 
 
 def create_root() -> tk.Tk:

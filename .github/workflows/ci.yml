@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - develop
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Quality (py${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends python3-tk
+
+      - name: Install project deps
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev,ui]"
+
+      - name: Ruff (critical checks)
+        run: |
+          ruff check . --select E9,F63,F7,F82
+
+      - name: Compile check
+        run: |
+          python -m compileall -q adb_automation_tool.py smart_intel_scan.py intelligence tests
+
+      - name: Unit tests
+        run: |
+          python -m unittest discover -s tests -p "test_*.py"
+
+      - name: CLI smoke
+        run: |
+          python smart_intel_scan.py --help > /dev/null
+
+      - name: Shell scripts syntax
+        run: |
+          bash -n scripts/*.sh
+
+  release-flow-qa:
+    name: Release Flow QA
+    runs-on: ubuntu-latest
+    needs: quality
+    if: github.event_name != 'pull_request'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Release script QA
+        run: |
+          chmod +x scripts/qa-release-tag.sh
+          ./scripts/qa-release-tag.sh
